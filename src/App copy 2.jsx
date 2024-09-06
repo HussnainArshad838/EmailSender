@@ -5,8 +5,6 @@ import * as XLSX from "xlsx";
 import logo from "../public/peopleConnect.png"; // Adjust the path to your logo image
 
 function App() {
-  const [showPopup, setShowPopup] = useState(false); // Show popup state
-
   const [content, setContent] = useState(""); // Email content from Jodit editor
   const [email, setEmail] = useState(""); // User's email
   const [password, setPassword] = useState(""); // App-specific password
@@ -15,20 +13,10 @@ function App() {
   const [subject, setSubject] = useState(""); // Email subject
   const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 }); // Status for email sending
   const [isSending, setIsSending] = useState(false); // Sending status
-  const [currentEmail, setCurrentEmail] = useState(""); // Email being processed
 
   const config = {
     readonly: false,
     height: 400,
-  };
-
-  // Show popup for 2 seconds
-  const showPopupNotification = (message) => {
-    setCurrentEmail(message);
-    setShowPopup(true);
-    setTimeout(() => {
-      setShowPopup(false);
-    }, 2000); // Hide after 2 seconds
   };
 
   // Handle file upload and parse emails
@@ -229,11 +217,7 @@ function App() {
               Stop
             </button>
           </div>
-          {showPopup && (
-            <div className="fixed top-0 right-0 mt-4 mr-4 p-4 bg-green-500 text-white rounded shadow-lg">
-              {currentEmail}
-            </div>
-          )}
+
           <div className="mb-4">
             <div className="mb-4 flex flex-row justify-between">
               <p>
