@@ -57,7 +57,7 @@ function App() {
   // Listen to email events from the server
   useEffect(() => {
     const eventSource = new EventSource(
-      "https://email-sender-mauve.vercel.app/email-events"
+      "https://email-sender-backend-olive.vercel.app/email-events"
     );
 
     eventSource.onmessage = (event) => {
@@ -86,13 +86,16 @@ function App() {
     setIsSending(true);
 
     try {
-      await axios.post("https://email-sender-mauve.vercel.app/send-email", {
-        email,
-        password,
-        content,
-        emails,
-        subject, // Send subject as well
-      });
+      await axios.post(
+        "https://email-sender-backend-olive.vercel.app/send-email",
+        {
+          email,
+          password,
+          content,
+          emails,
+          subject, // Send subject as well
+        }
+      );
 
       setIsSending(false);
     } catch (error) {
@@ -105,7 +108,9 @@ function App() {
   // Handle stop process on the backend
   const stopEmailSending = async () => {
     try {
-      await axios.post("https://email-sender-mauve.vercel.app/stop-email");
+      await axios.post(
+        "https://email-sender-backend-olive.vercel.app/stop-email"
+      );
       showPopupNotification("Email sending process stopped.");
     } catch (error) {
       console.error("Error stopping email process:", error);
