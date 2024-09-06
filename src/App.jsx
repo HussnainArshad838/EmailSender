@@ -16,6 +16,7 @@ function App() {
   const [isSending, setIsSending] = useState(false);
   const [currentEmail, setCurrentEmail] = useState("");
   const [allEmailsSent, setAllEmailsSent] = useState(false);
+  const [processId, setProcessId] = useState(null); // Store processId for status updates
 
   const config = {
     readonly: false,
@@ -53,10 +54,12 @@ function App() {
   };
 
   useEffect(() => {
-    if (isSending) {
+    if (isSending && processId) {
       const intervalId = setInterval(() => {
         axios
-          .get("https://email-sender-backend-olive.vercel.app/email-status")
+          .get("https://email-sender-backend-olive.vercel.app/email-status", {
+            params: { processId }, // Send processId with the request
+          })
           .then((response) => {
             setStatus(response.data);
             if (response.data.allEmailsSent) {
@@ -71,14 +74,14 @@ function App() {
 
       return () => clearInterval(intervalId);
     }
-  }, [isSending]);
+  }, [isSending, processId]);
 
   const sendEmail = async () => {
     setIsSending(true);
     setAllEmailsSent(false);
 
     try {
-      await axios.post(
+      const response = await axios.post(
         "https://email-sender-backend-olive.vercel.app/send-email",
         {
           email,
@@ -88,6 +91,8 @@ function App() {
           subject,
         }
       );
+      const { processId } = response.data;
+      setProcessId(processId); // Store processId for future polling
 
       showPopupNotification("Emails are being sent.");
     } catch (error) {
@@ -100,7 +105,8 @@ function App() {
   const stopEmailSending = async () => {
     try {
       await axios.post(
-        "https://email-sender-backend-olive.vercel.app/stop-email"
+        "https://email-sender-backend-olive.vercel.app/stop-email",
+        { processId }
       );
       showPopupNotification("Email sending process stopped.");
       setIsSending(false);
@@ -116,14 +122,13 @@ function App() {
           <img src={logo} alt="Logo" className="h-12 w-12 mr-3" />
           <h1 className="text-xl font-bold">Email Sender</h1>
         </div>
-
         <div className="text-center">
           <h2 className="text-2xl font-semibold">Effortless Email Delivery</h2>
         </div>
       </header>
 
       <div className="flex flex-row">
-        <div className="w-[20%] text-center ">Ads Section</div>
+        <div className="w-[20%] text-center">Ads Section</div>
         <div className="w-[60%] text-center bg-red-100 px-3">
           <h1 className="text-3xl font-bold underline mb-4">
             Email Sender App
