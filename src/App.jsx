@@ -2,36 +2,34 @@ import React, { useState, useEffect } from "react";
 import JoditEditor from "jodit-react";
 import axios from "axios";
 import * as XLSX from "xlsx";
-import logo from "../public/peopleConnect.png"; // Adjust the path to your logo image
+import logo from "../public/peopleConnect.png";
 
 function App() {
-  const [showPopup, setShowPopup] = useState(false); // Show popup state
-
-  const [content, setContent] = useState(""); // Email content from Jodit editor
-  const [email, setEmail] = useState(""); // User's email
-  const [password, setPassword] = useState(""); // App-specific password
-  const [file, setFile] = useState(null); // Uploaded file with emails
-  const [emails, setEmails] = useState([]); // Parsed emails from file
-  const [subject, setSubject] = useState(""); // Email subject
-  const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 }); // Status for email sending
-  const [isSending, setIsSending] = useState(false); // Sending status
-  const [currentEmail, setCurrentEmail] = useState(""); // Email being processed
+  const [showPopup, setShowPopup] = useState(false);
+  const [content, setContent] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [file, setFile] = useState(null);
+  const [emails, setEmails] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 });
+  const [isSending, setIsSending] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState("");
+  const [allEmailsSent, setAllEmailsSent] = useState(false);
 
   const config = {
     readonly: false,
     height: 400,
   };
 
-  // Show popup for 2 seconds
   const showPopupNotification = (message) => {
     setCurrentEmail(message);
     setShowPopup(true);
     setTimeout(() => {
       setShowPopup(false);
-    }, 2000); // Hide after 2 seconds
+    }, 2000);
   };
 
-  // Handle file upload and parse emails
   const handleFileUpload = (e) => {
     const uploadedFile = e.target.files[0];
     setFile(uploadedFile);
@@ -45,7 +43,6 @@ function App() {
         header: 1,
       });
 
-      // Ensure each row contains an email address and remove any empty values
       const emailList = sheet
         .map((row) => row[0])
         .filter((email) => email && email.includes("@"));
@@ -55,7 +52,6 @@ function App() {
     reader.readAsBinaryString(uploadedFile);
   };
 
-  // Poll email status every 5 seconds
   useEffect(() => {
     if (isSending) {
       const intervalId = setInterval(() => {
@@ -63,19 +59,23 @@ function App() {
           .get("https://email-sender-backend-olive.vercel.app/email-status")
           .then((response) => {
             setStatus(response.data);
+            if (response.data.allEmailsSent) {
+              setIsSending(false);
+              setAllEmailsSent(true);
+            }
           })
           .catch((error) => {
             console.error("Error polling email status:", error);
           });
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
 
-      return () => clearInterval(intervalId); // Cleanup on component unmount
+      return () => clearInterval(intervalId);
     }
   }, [isSending]);
 
-  // Handle sending email
   const sendEmail = async () => {
     setIsSending(true);
+    setAllEmailsSent(false);
 
     try {
       await axios.post(
@@ -85,7 +85,7 @@ function App() {
           password,
           content,
           emails,
-          subject, // Send subject as well
+          subject,
         }
       );
 
@@ -97,7 +97,6 @@ function App() {
     }
   };
 
-  // Handle stop process on the backend
   const stopEmailSending = async () => {
     try {
       await axios.post(
@@ -224,7 +223,7 @@ function App() {
             <button
               onClick={stopEmailSending}
               className="bg-red-500 text-white p-2 rounded ml-4"
-              disabled={!isSending} // Disable if not sending
+              disabled={!isSending}
             >
               Stop
             </button>
@@ -248,7 +247,11 @@ function App() {
                 {status.failed}
               </p>
             </div>
-
+            {allEmailsSent && (
+              <p className="text-green-600 font-bold">
+                All emails sent successfully!
+              </p>
+            )}
             <label className="block font-bold mb-2">Write Email Content:</label>
             <JoditEditor
               value={content}
