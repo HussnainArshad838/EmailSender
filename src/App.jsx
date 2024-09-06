@@ -98,6 +98,7 @@ function App() {
       );
 
       setIsSending(false);
+      showPopupNotification("Emails sent successfully.");
     } catch (error) {
       console.error("Error sending emails:", error);
       showPopupNotification("Failed to send emails.");
@@ -162,7 +163,7 @@ function App() {
                     App-Specific Password:
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     className="border p-2 w-full rounded"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -201,28 +202,24 @@ function App() {
 
             <div className="w-[40%] ">
               <label className="block  font-bold mb-2">Instructions:</label>
-              <ul className="list-disc border-2 text-left text-sm">
+              <ul className="list-disc border-2 text-left text-sm p-2">
                 <li>
-                  In the "<strong>Enter Email</strong>" input field, enter the
-                  email address from which you want to send the email.
+                  Enter the email address in the "
+                  <strong>Your Email Address</strong>" input field.
                 </li>
                 <li>
-                  In the "<strong>App-Specific Password</strong>" field, go to
-                  the Google account manager for the same email. Ensure two-step
-                  authentication is enabled, search for "
-                  <strong>App Password</strong>," generate it, and copy and
-                  paste the password into this field.
+                  Go to Google account manager, generate an "
+                  <strong>App-Specific Password</strong>" (two-factor
+                  authentication is required), and paste it in the corresponding
+                  field.
                 </li>
                 <li>
-                  In the "<strong>Enter Subject</strong>" field, enter the
-                  subject of the email.
+                  Enter the subject of the email in the "
+                  <strong>Email Subject</strong>" field.
                 </li>
                 <li>
-                  {" "}
-                  In the "<strong>Upload Excel File</strong>" field, upload the
-                  Excel sheet. The sheet should contain one column named "
-                  <strong>Email</strong>," with all the email addresses listed
-                  below it.
+                  Upload an Excel file with one column containing the email
+                  addresses in the "<strong>Upload Excel File</strong>" field.
                 </li>
               </ul>
             </div>
@@ -276,10 +273,6 @@ function App() {
               onBlur={(newContent) => setContent(newContent)}
             />
           </div>
-
-          {/* Send and Stop Buttons */}
-
-          {/* Popup Notification */}
         </div>
         <div className="w-[20%] text-center">Ads Section</div>
       </div>
