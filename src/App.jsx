@@ -12,8 +12,6 @@ function App() {
   const [emails, setEmails] = useState([]); // Parsed emails from file
   const [subject, setSubject] = useState(""); // Email subject
   const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 }); // Status for email sending
-  const [currentEmail, setCurrentEmail] = useState(""); // Email being processed
-  const [showPopup, setShowPopup] = useState(false); // Show popup state
   const [isSending, setIsSending] = useState(false); // Sending status
 
   const config = {
@@ -45,41 +43,23 @@ function App() {
     reader.readAsBinaryString(uploadedFile);
   };
 
-  // Show popup for 2 seconds
-  const showPopupNotification = (message) => {
-    setCurrentEmail(message);
-    setShowPopup(true);
-    setTimeout(() => {
-      setShowPopup(false);
-    }, 2000); // Hide after 2 seconds
-  };
-
-  // Listen to email events from the server
+  // Poll email status every 5 seconds
   useEffect(() => {
-    const eventSource = new EventSource(
-      "https://email-sender-backend-olive.vercel.app/email-events"
-    );
+    if (isSending) {
+      const intervalId = setInterval(() => {
+        axios
+          .get("https://email-sender-backend-olive.vercel.app/email-status")
+          .then((response) => {
+            setStatus(response.data);
+          })
+          .catch((error) => {
+            console.error("Error polling email status:", error);
+          });
+      }, 5000); // Poll every 5 seconds
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setStatus((prevStatus) => ({
-        ...prevStatus,
-        sent: data.sent,
-        failed: data.failed,
-      }));
-
-      showPopupNotification(`Email ${data.status} to ${data.recipient}`);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("Error in event source:", error);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close(); // Cleanup on component unmount
-    };
-  }, []);
+      return () => clearInterval(intervalId); // Cleanup on component unmount
+    }
+  }, [isSending]);
 
   // Handle sending email
   const sendEmail = async () => {
@@ -97,11 +77,10 @@ function App() {
         }
       );
 
-      setIsSending(false);
-      showPopupNotification("Emails sent successfully.");
+      showPopupNotification("Emails are being sent.");
     } catch (error) {
       console.error("Error sending emails:", error);
-      showPopupNotification("Failed to send emails.");
+      showPopupNotification("Failed to start email sending.");
       setIsSending(false);
     }
   };
@@ -113,6 +92,7 @@ function App() {
         "https://email-sender-backend-olive.vercel.app/stop-email"
       );
       showPopupNotification("Email sending process stopped.");
+      setIsSending(false);
     } catch (error) {
       console.error("Error stopping email process:", error);
     }
@@ -121,13 +101,11 @@ function App() {
   return (
     <>
       <header className="flex items-center justify-between py-4 px-6 bg-pink-200 dark:text-white text-black">
-        {/* Left side - Logo */}
         <div className="flex items-center">
           <img src={logo} alt="Logo" className="h-12 w-12 mr-3" />
           <h1 className="text-xl font-bold">Email Sender</h1>
         </div>
 
-        {/* Center - Tagline */}
         <div className="text-center">
           <h2 className="text-2xl font-semibold">Effortless Email Delivery</h2>
         </div>
@@ -140,10 +118,8 @@ function App() {
             Email Sender App
           </h1>
           <div className="flex flex-row w-full space-x-4">
-            {/* Left content with form inputs */}
             <div className="w-[60%]">
               <div className="grid grid-cols-2 gap-4 mr-4">
-                {/* Email Input */}
                 <div className="mb-4">
                   <label className="block font-bold mb-2 text-left">
                     Your Email Address:
@@ -157,7 +133,6 @@ function App() {
                   />
                 </div>
 
-                {/* App Password Input */}
                 <div className="mb-4">
                   <label className="block font-bold mb-2 text-left">
                     App-Specific Password:
@@ -171,7 +146,6 @@ function App() {
                   />
                 </div>
 
-                {/* Email Subject */}
                 <div className="mb-4">
                   <label className="block font-bold mb-2 text-left">
                     Email Subject:
@@ -185,7 +159,6 @@ function App() {
                   />
                 </div>
 
-                {/* File Upload Input */}
                 <div className="mb-4">
                   <label className="block font-bold mb-2 text-left">
                     Upload CSV/Excel File:
@@ -201,7 +174,7 @@ function App() {
             </div>
 
             <div className="w-[40%] ">
-              <label className="block  font-bold mb-2">Instructions:</label>
+              <label className="block font-bold mb-2">Instructions:</label>
               <ul className="list-disc border-2 text-left text-sm p-2">
                 <li>
                   Enter the email address in the "
@@ -243,11 +216,6 @@ function App() {
             >
               Stop
             </button>
-            {showPopup && (
-              <div className="fixed top-0 right-0 mt-4 mr-4 p-4 bg-green-500 text-white rounded shadow-lg">
-                {currentEmail}
-              </div>
-            )}
           </div>
 
           <div className="mb-4">
