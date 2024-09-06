@@ -157,7 +157,7 @@ function App() {
                     App-Specific Password:
                   </label>
                   <input
-                    type="password"
+                    type="text"
                     className="border p-2 w-full rounded"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
