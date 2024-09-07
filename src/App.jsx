@@ -14,6 +14,7 @@ function App() {
   const [subject, setSubject] = useState("");
   const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 });
   const [isSending, setIsSending] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState("");
   const [allEmailsSent, setAllEmailsSent] = useState(false);
   const [processId, setProcessId] = useState(null); // Store processId for status updates
 
@@ -23,6 +24,7 @@ function App() {
   };
 
   const showPopupNotification = (message) => {
+    setCurrentEmail(message);
     setShowPopup(true);
     setTimeout(() => {
       setShowPopup(false);
@@ -53,7 +55,6 @@ function App() {
 
   useEffect(() => {
     if (isSending && processId) {
-      const pollingInterval = 10000; // Start with 10 seconds
       const intervalId = setInterval(() => {
         axios
           .get("https://email-sender-backend-olive.vercel.app/email-status", {
@@ -64,19 +65,21 @@ function App() {
             if (response.data.allEmailsSent) {
               setIsSending(false);
               setAllEmailsSent(true);
-              clearInterval(intervalId); // Stop polling once complete
             }
           })
           .catch((error) => {
             console.error("Error polling email status:", error);
           });
-      }, pollingInterval);
+      }, 5000);
 
       return () => clearInterval(intervalId);
     }
   }, [isSending, processId]);
 
-  const sendEmailBatch = async (batch) => {
+  const sendEmail = async () => {
+    setIsSending(true);
+    setAllEmailsSent(false);
+
     try {
       const response = await axios.post(
         "https://email-sender-backend-olive.vercel.app/send-email",
@@ -84,32 +87,18 @@ function App() {
           email,
           password,
           content,
-          emails: batch,
+          emails,
           subject,
         }
       );
       const { processId } = response.data;
       setProcessId(processId); // Store processId for future polling
-      showPopupNotification("Batch of emails are being sent.");
+
+      showPopupNotification("Emails are being sent.");
     } catch (error) {
-      console.error("Error sending batch of emails:", error);
-      showPopupNotification("Failed to send batch of emails.");
+      console.error("Error sending emails:", error);
+      showPopupNotification("Failed to start email sending.");
       setIsSending(false);
-    }
-  };
-
-  const sendEmail = async () => {
-    setIsSending(true);
-    setAllEmailsSent(false);
-
-    const BATCH_SIZE = 50;
-    const emailBatches = [];
-    for (let i = 0; i < emails.length; i += BATCH_SIZE) {
-      emailBatches.push(emails.slice(i, i + BATCH_SIZE));
-    }
-
-    for (const batch of emailBatches) {
-      await sendEmailBatch(batch);
     }
   };
 
