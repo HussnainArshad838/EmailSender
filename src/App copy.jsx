@@ -2,25 +2,35 @@ import React, { useState, useEffect } from "react";
 import JoditEditor from "jodit-react";
 import axios from "axios";
 import * as XLSX from "xlsx";
+import logo from "../public/peopleConnect.png";
 
 function App() {
-  const [content, setContent] = useState(""); // Email content from Jodit editor
-  const [email, setEmail] = useState(""); // User's email
-  const [password, setPassword] = useState(""); // App-specific password
-  const [file, setFile] = useState(null); // Uploaded file with emails
-  const [emails, setEmails] = useState([]); // Parsed emails from file
-  const [subject, setSubject] = useState(""); // Email subject
-  const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 }); // Status for email sending
-  const [currentEmail, setCurrentEmail] = useState(""); // Email being processed
-  const [showPopup, setShowPopup] = useState(false); // Show popup state
-  const [isSending, setIsSending] = useState(false); // Sending status
+  const [showPopup, setShowPopup] = useState(false);
+  const [content, setContent] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [file, setFile] = useState(null);
+  const [emails, setEmails] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [status, setStatus] = useState({ total: 0, sent: 0, failed: 0 });
+  const [isSending, setIsSending] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState("");
+  const [allEmailsSent, setAllEmailsSent] = useState(false);
+  const [processId, setProcessId] = useState(null); // Store processId for status updates
 
   const config = {
     readonly: false,
     height: 400,
   };
 
-  // Handle file upload and parse emails
+  const showPopupNotification = (message) => {
+    setCurrentEmail(message);
+    setShowPopup(true);
+    setTimeout(() => {
+      setShowPopup(false);
+    }, 2000);
+  };
+
   const handleFileUpload = (e) => {
     const uploadedFile = e.target.files[0];
     setFile(uploadedFile);
@@ -34,7 +44,6 @@ function App() {
         header: 1,
       });
 
-      // Ensure each row contains an email address and remove any empty values
       const emailList = sheet
         .map((row) => row[0])
         .filter((email) => email && email.includes("@"));
@@ -44,170 +53,222 @@ function App() {
     reader.readAsBinaryString(uploadedFile);
   };
 
-  // Show popup for 2 seconds
-  const showPopupNotification = (message) => {
-    setCurrentEmail(message);
-    setShowPopup(true);
-    setTimeout(() => {
-      setShowPopup(false);
-    }, 2000); // Hide after 2 seconds
-  };
-
-  // Listen to email events from the server
   useEffect(() => {
-    const eventSource = new EventSource("http://localhost:5000/email-events");
+    if (isSending && processId) {
+      const intervalId = setInterval(() => {
+        axios
+          .get("https://email-sender-backend-olive.vercel.app/email-status", {
+            params: { processId }, // Send processId with the request
+          })
+          .then((response) => {
+            setStatus(response.data);
+            if (response.data.allEmailsSent) {
+              setIsSending(false);
+              setAllEmailsSent(true);
+            }
+          })
+          .catch((error) => {
+            console.error("Error polling email status:", error);
+          });
+      }, 5000);
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setStatus((prevStatus) => ({
-        ...prevStatus,
-        sent: data.sent,
-        failed: data.failed,
-      }));
+      return () => clearInterval(intervalId);
+    }
+  }, [isSending, processId]);
 
-      showPopupNotification(`Email ${data.status} to ${data.recipient}`);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("Error in event source:", error);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close(); // Cleanup on component unmount
-    };
-  }, []);
-
-  // Handle sending email
   const sendEmail = async () => {
     setIsSending(true);
+    setAllEmailsSent(false);
 
     try {
-      await axios.post("http://localhost:5000/send-email", {
-        email,
-        password,
-        content,
-        emails,
-        subject, // Send subject as well
-      });
+      const response = await axios.post(
+        "https://email-sender-backend-olive.vercel.app/send-email",
+        {
+          email,
+          password,
+          content,
+          emails,
+          subject,
+        }
+      );
+      const { processId } = response.data;
+      setProcessId(processId); // Store processId for future polling
 
-      setIsSending(false);
+      showPopupNotification("Emails are being sent.");
     } catch (error) {
       console.error("Error sending emails:", error);
-      showPopupNotification("Failed to send emails.");
+      showPopupNotification("Failed to start email sending.");
       setIsSending(false);
     }
   };
 
-  // Handle stop process on the backend
   const stopEmailSending = async () => {
     try {
-      await axios.post("http://localhost:5000/stop-email");
+      await axios.post(
+        "https://email-sender-backend-olive.vercel.app/stop-email",
+        { processId }
+      );
       showPopupNotification("Email sending process stopped.");
+      setIsSending(false);
     } catch (error) {
       console.error("Error stopping email process:", error);
     }
   };
 
   return (
-    <div className="flex flex-row w-full min-h-screen">
-      <div className="w-[20%] bg-gray-100 p-4 inline">Area for ads</div>
-      <div className="w-[60%] bg-white p-4 inline">
-        <h1 className="text-3xl font-bold underline mb-4">Email Sender App</h1>
-
-        {/* Email Input */}
-        <div className="mb-4">
-          <label className="block font-bold mb-2">Your Email Address:</label>
-          <input
-            type="email"
-            className="border p-2 w-full"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-          />
+    <>
+      <header className="flex items-center justify-between py-4 px-6 bg-pink-200 dark:text-white text-black">
+        <div className="flex items-center">
+          <img src={logo} alt="Logo" className="h-12 w-12 mr-3" />
+          <h1 className="text-xl font-bold">Email Sender</h1>
         </div>
-
-        {/* App Password Input */}
-        <div className="mb-4">
-          <label className="block font-bold mb-2">App-Specific Password:</label>
-          <input
-            type="password"
-            className="border p-2 w-full"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your app password"
-          />
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold">Effortless Email Delivery</h2>
         </div>
+      </header>
 
-        {/* Subject Input */}
-        <div className="mb-4">
-          <label className="block font-bold mb-2">Email Subject:</label>
-          <input
-            type="text"
-            className="border p-2 w-full"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Enter email subject"
-          />
-        </div>
+      <div className="flex flex-row">
+        <div className="w-[20%] text-center">Ads Section</div>
+        <div className="w-[60%] text-center bg-red-100 px-3">
+          <h1 className="text-3xl font-bold underline mb-4">
+            Email Sender App
+          </h1>
+          <div className="flex flex-row w-full space-x-4">
+            <div className="w-[60%]">
+              <div className="grid grid-cols-2 gap-4 mr-4">
+                <div className="mb-4">
+                  <label className="block font-bold mb-2 text-left">
+                    Your Email Address:
+                  </label>
+                  <input
+                    type="email"
+                    className="border p-2 w-full rounded"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                  />
+                </div>
 
-        {/* File Upload Input */}
-        <div className="mb-4">
-          <label className="block font-bold mb-2">Upload CSV/Excel File:</label>
-          <input
-            type="file"
-            accept=".csv, .xlsx, .xls"
-            onChange={handleFileUpload}
-          />
-        </div>
+                <div className="mb-4">
+                  <label className="block font-bold mb-2 text-left">
+                    App-Specific Password:
+                  </label>
+                  <input
+                    type="password"
+                    className="border p-2 w-full rounded"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your app password"
+                  />
+                </div>
 
-        {/* Email Content Editor */}
-        <div className="mb-4">
-          <label className="block font-bold mb-2">Write Email Content:</label>
-          <JoditEditor
-            value={content}
-            config={config}
-            onBlur={(newContent) => setContent(newContent)}
-          />
-        </div>
+                <div className="mb-4">
+                  <label className="block font-bold mb-2 text-left">
+                    Email Subject:
+                  </label>
+                  <input
+                    type="text"
+                    className="border p-2 w-full rounded"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Enter email subject"
+                  />
+                </div>
 
-        {/* Status Bar */}
-        <div className="mb-4">
-          <p>Total emails: {status.total}</p>
-          <p>Sent emails: {status.sent}</p>
-          <p>Failed emails: {status.failed}</p>
-        </div>
+                <div className="mb-4">
+                  <label className="block font-bold mb-2 text-left">
+                    Upload CSV/Excel File:
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv, .xlsx, .xls"
+                    className="border p-2 w-full rounded"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+              </div>
+            </div>
 
-        {/* Send and Stop Buttons */}
-        <div className="mb-4">
-          <button
-            onClick={sendEmail}
-            className={`bg-blue-500 text-white p-2 rounded ${
-              isSending ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            disabled={isSending}
-          >
-            {isSending ? "Sending Emails..." : "Send Emails"}
-          </button>
-
-          <button
-            onClick={stopEmailSending}
-            className="bg-red-500 text-white p-2 rounded ml-4"
-            disabled={!isSending} // Disable if not sending
-          >
-            Stop
-          </button>
-        </div>
-
-        {/* Popup Notification */}
-        {showPopup && (
-          <div className="fixed top-0 right-0 mt-4 mr-4 p-4 bg-green-500 text-white rounded shadow-lg">
-            {currentEmail}
+            <div className="w-[40%] ">
+              <label className="block font-bold mb-2">Instructions:</label>
+              <ul className="list-disc border-2 text-left text-sm p-2">
+                <li>
+                  Enter the email address in the "
+                  <strong>Your Email Address</strong>" input field.
+                </li>
+                <li>
+                  Go to Google account manager, generate an "
+                  <strong>App-Specific Password</strong>" (two-factor
+                  authentication is required), and paste it in the corresponding
+                  field.
+                </li>
+                <li>
+                  Enter the subject of the email in the "
+                  <strong>Email Subject</strong>" field.
+                </li>
+                <li>
+                  Upload an Excel file with one column containing the email
+                  addresses in the "<strong>Upload Excel File</strong>" field.
+                </li>
+              </ul>
+            </div>
           </div>
-        )}
+
+          <div className="mb-4">
+            <button
+              onClick={sendEmail}
+              className={`bg-blue-500 text-white p-2 rounded ${
+                isSending ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              disabled={isSending}
+            >
+              {isSending ? "Sending Emails..." : "Send Emails"}
+            </button>
+
+            <button
+              onClick={stopEmailSending}
+              className="bg-red-500 text-white p-2 rounded ml-4"
+              disabled={!isSending}
+            >
+              Stop
+            </button>
+          </div>
+          {showPopup && (
+            <div className="fixed top-0 right-0 mt-4 mr-4 p-4 bg-green-500 text-white rounded shadow-lg">
+              {currentEmail}
+            </div>
+          )}
+          <div className="mb-4">
+            <div className="mb-4 flex flex-row justify-between">
+              <p>
+                <strong>Total emails:</strong> {status.total}
+              </p>
+              <p>
+                <strong className="text-green-600">Sent emails:</strong>{" "}
+                <span className="text-lg">{status.sent}</span>
+              </p>
+              <p>
+                <strong className="text-red-600">Failed emails:</strong>{" "}
+                {status.failed}
+              </p>
+            </div>
+            {allEmailsSent && (
+              <p className="text-green-600 font-bold">
+                All emails sent successfully!
+              </p>
+            )}
+            <label className="block font-bold mb-2">Write Email Content:</label>
+            <JoditEditor
+              value={content}
+              config={config}
+              className="text-left"
+              onBlur={(newContent) => setContent(newContent)}
+            />
+          </div>
+        </div>
+        <div className="w-[20%] text-center">Ads Section</div>
       </div>
-      <div className="w-[20%] bg-gray-100 p-4 inline">Area for ads</div>
-    </div>
+    </>
   );
 }
 
