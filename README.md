@@ -6,6 +6,8 @@
 
 The **Email Sender App** is a web application that allows users to send bulk emails effortlessly. It provides an interface to enter the sender’s email address, app-specific password, subject, email content, and a list of recipient email addresses from an uploaded CSV or Excel file. This app is ideal for users who need to automate email campaigns or notify multiple recipients efficiently.
 
+The app is live and can be accessed at:https://email-sender-mauve.vercel.app/
+
 ## Features
 
 - **Email Delivery**: Send bulk emails to a list of recipients by uploading a CSV or Excel file.
